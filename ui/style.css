@@ -27,24 +27,21 @@ button:disabled { opacity: .44; cursor: default }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--action); outline-offset: 2px }
 .filled { color: var(--primary-ink); background: var(--primary-fill); border-color: #bfd599; font-weight: 500 }
 .filled:hover { background: #bfdd91; border-color: #bfdd91 }
-.top {
-  height: 54px; flex: none; display: flex; align-items: center; gap: 17px; padding: 0 23px;
-  background: #fff; border-bottom: 1px solid var(--edge);
-  -webkit-app-region: drag; user-select: none;
-}
-.mac .top { padding-left: 90px }
-.brand { display: flex; align-items: center; gap: 8px; font: 600 21px/1.1 var(--ui-font); letter-spacing: .04em }
-.brandmark { display: block; width: 30px; height: 30px }
-.app-name { padding-left: 17px; border-left: 1px solid #d1d1d1; color: var(--muted); font-size: 12px }
 .workspace { display: flex; flex: 1; min-height: 0 }
 aside {
   --sidebar-font: "LXGW WenKai", "霞鹜文楷", serif;
   font-family: var(--sidebar-font);
-  width: clamp(255px, 23%, 315px); flex: none; padding: 25px 18px 12px;
+  width: clamp(255px, 23%, 315px); flex: none; padding: 0 18px 12px;
   display: flex; flex-direction: column; gap: 15px; background: #fff; border-right: 1px solid var(--edge);
 }
 .side-title, .imports, .clip-title, .section-title, .transport, .cutline, .exportbar { display: flex; align-items: center; gap: 10px }
-.side-title { gap: 9px }
+.side-title { gap: 9px; min-height: 52px; flex: none; margin-bottom: -8px }
+.mac .side-title { padding-top: 52px; margin-bottom: 0; -webkit-app-region: drag; user-select: none }
+.detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column }
+.mac .clip-title { -webkit-app-region: drag }
+.mac .clip-title .more { -webkit-app-region: no-drag }
+.mac .empty { position: relative }
+.mac .empty::before { content: ""; position: absolute; inset: 0 0 auto; height: 52px; -webkit-app-region: drag }
 h2, .section-title label { margin: 0; font-size: 15px; font-weight: 600 }
 .side-title h2 { font-size: 18px; letter-spacing: .02em }
 .count { font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--action); padding: 2px 7px; border-radius: 5px; background: var(--tint) }
@@ -108,7 +105,7 @@ main { flex: 1; min-width: 0; overflow: auto }
 .clip-title button, .subtle { font-size: 12px }
 .clip-title button { background: transparent; border-color: transparent; color: var(--muted) }
 .clip-title button:hover { background: #f5f8ed }
-.viewer { position: relative; overflow: hidden; height: clamp(180px,calc(100vh - 448px),74vh); background: #1a1a1a; border-radius: 9px }
+.viewer { position: relative; overflow: hidden; height: clamp(180px,calc(100vh - 386px),74vh); background: #1a1a1a; border-radius: 9px }
 video { height: 100%; width: 100%; display: block; object-fit: contain }
 .viewer-message { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 15px; color: #e8e8e8; background: #1b1b1b }
 .viewer-message button { color: #333333 }
@@ -133,9 +130,13 @@ kbd { margin-left: 3px; font: 11px/1.25 var(--mono-font) }
 .notebox textarea { display: block; min-height: 44px; resize: vertical; font-size: 14px; line-height: 1.55 }
 .exportbar { justify-content: flex-end }
 .export-format { margin-right: auto; font-size: 11px }
-footer { display: flex; align-items: center; gap: 10px; flex: none; min-height: 29px; padding: 5px 19px; border-top: 1px solid var(--edge); background: #fff; font-size: 12px; color: #5e5e5e }
-#status { overflow-wrap: anywhere }
-footer button { padding: 2px 8px; font-size: 11px }
+.feedback {
+  display: flex; flex: none; align-items: center; gap: 12px;
+  padding: 9px clamp(21px,2.3vw,38px); border-top: 1px solid var(--edge);
+  font-size: 12px; color: var(--muted);
+}
+#status { flex: 1; min-width: 0; max-height: 6em; overflow: auto; overflow-wrap: anywhere }
+.feedback button { padding: 3px 9px; font-size: 12px }
 #status.error { color: #a44232 }
 @media (prefers-reduced-motion: reduce) { button { transition: none } }
 

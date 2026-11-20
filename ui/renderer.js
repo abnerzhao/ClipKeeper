@@ -13,9 +13,21 @@ const clock = seconds => {
   return String(Math.floor(ms / 60000)).padStart(2,'0') + ':' + String(Math.floor(ms / 1000) % 60).padStart(2,'0') + '.' + String(ms % 1000).padStart(3,'0')
 }
 
+let feedbackTimer
+function updateFeedbackLifetime() {
+  clearTimeout(feedbackTimer)
+  if (!busy && !$('dismiss').hidden) return
+  if (!busy) feedbackTimer = setTimeout(() => { $('feedback').hidden = true }, 5000)
+}
+
+$('dismiss').onclick = () => { $('feedback').hidden = true }
+
 function status(message, error = false) {
+  $('feedback').hidden = false
+  $('dismiss').hidden = !error
   $('status').textContent = message
   $('status').classList.toggle('error', error)
+  updateFeedbackLifetime()
 }
 function fail(error) {
   status(String(error.message || error).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), true)
@@ -252,7 +264,7 @@ async function task(fn, cancellable = false) {
     if (writeError) throw writeError
     await fn()
   } catch (error) { fail(error) }
-  finally { busy = false; $('cancel').hidden = true; list(); controls() }
+  finally { busy = false; $('cancel').hidden = true; updateFeedbackLifetime(); list(); controls() }
 }
 function pick(kind) {
   task(async () => {

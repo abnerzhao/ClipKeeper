@@ -6,7 +6,6 @@
 <title>拾片</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top"><div class="brand"><img class="brandmark" src="assets/cutshelf.svg" alt="">拾片</div></header>
 <div class="workspace">
 <aside>
   <div class="side-title"><h2>素材库</h2><span id="total" class="count">0</span></div>
@@ -15,6 +14,7 @@
   <div id="items" class="items" aria-label="素材列表"></div>
 
 </aside>
+<div class="detail-pane">
 <main>
   <section id="empty" class="empty">
     <img class="film" src="assets/cutshelf.svg" alt="">
@@ -36,7 +36,12 @@
     <div class="exportbar"><button id="overwrite">覆盖原片…</button><button id="newFile" class="filled">导出为新文件</button></div>
   </section>
 </main>
+<div id="feedback" class="feedback" hidden>
+  <span id="status" role="status"></span>
+  <button id="cancel" hidden>取消任务</button>
+  <button id="dismiss" hidden aria-label="关闭提示">关闭</button>
 </div>
-<footer><span id="status" role="status">就绪</span><button id="cancel" hidden>取消任务</button></footer>
+</div>
+</div>
 <script src="renderer.js"></script>
 </body></html>
