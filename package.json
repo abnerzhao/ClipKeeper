@@ -1,0 +1,22 @@
+{
+  "name": "clipkeeper",
+  "productName": "拾片",
+  "version": "0.1.0",
+  "private": true,
+  "description": "本地视频素材管理与粗剪",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/media.test.js",
+    "package": "node scripts/package.mjs",
+    "test:desktop": "node --test test/desktop.test.js"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "1.1.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.4.1",
+    "playwright-core": "1.65.1"
+  }
+}

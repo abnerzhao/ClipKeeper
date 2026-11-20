@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; media-src clip:; img-src 'self' data:; object-src 'none'; frame-src 'none'">
+<title>拾片</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="brand"><img class="brandmark" src="assets/cutshelf.svg" alt="">拾片</div></header>
+<div class="workspace">
+<aside>
+  <div class="side-title"><h2>素材库</h2><span id="total" class="count">0</span></div>
+  <div class="imports"><button id="importFiles" class="filled">＋ 导入视频</button><button id="importFolder">导入文件夹</button></div>
+  <input id="search" type="search" placeholder="搜索文件夹、文件名或备注…" aria-label="搜索素材">
+  <div id="items" class="items" aria-label="素材列表"></div>
+
+</aside>
+<main>
+  <section id="empty" class="empty">
+    <img class="film" src="assets/cutshelf.svg" alt="">
+    <h1>选择视频，开始粗剪</h1><p>选择本地视频或整个文件夹，原片保留在原位置。</p>
+    <button id="firstImport" class="filled">选择素材文件</button>
+  </section>
+  <section id="editor" hidden>
+    <div class="clip-title"><div class="clip-heading"><h1 id="name"></h1><p id="filePath"></p></div><details id="more" class="more"><summary aria-label="更多素材操作" title="更多素材操作">···</summary><div class="more-menu"><button id="reveal">显示文件</button><button id="remove">移出素材库</button></div></details></div>
+    <div class="viewer"><video id="video" preload="auto" playsinline></video>
+      <div class="viewer-message" id="viewerMessage" hidden><span id="mediaError"></span><button id="makeProxy">生成兼容预览</button></div>
+    </div>
+    <div class="transport"><button id="play" aria-label="播放或暂停" title="播放 / 暂停（空格）">▶</button><span id="position">00:00.000</span><div class="ruler"><canvas id="ruler" aria-hidden="true"></canvas><input id="seek" type="range" min="0" max="1" step="any" value="0" aria-label="播放位置"></div><span id="duration">00:00.000</span></div>
+    <div class="cutbox">
+      <div class="section-title"><h2>粗剪区间</h2><span id="length"></span></div>
+      <div class="cutline"><button id="markIn" title="用当前播放位置设置入点">设置入点 <kbd>I</kbd></button><output id="start"></output><span class="arrow">→</span><button id="markOut" title="用当前播放位置设置出点">设置出点 <kbd>O</kbd></button><output id="end"></output><button id="playRange" class="subtle">播放选段</button><button id="reset" class="subtle">重置</button></div>
+    </div>
+    <div class="notebox"><div class="section-title"><label for="note">素材备注</label><span id="saved"></span></div><textarea id="note" rows="2" maxlength="4000" placeholder="记录镜头内容或用途，例如「海边日落，适合开场」"></textarea></div>
+    <div class="exportbar"><button id="overwrite">覆盖原片…</button><button id="newFile" class="filled">导出为新文件</button></div>
+  </section>
+</main>
+</div>
+<footer><span id="status" role="status">就绪</span><button id="cancel" hidden>取消任务</button></footer>
+<script src="renderer.js"></script>
+</body></html>
