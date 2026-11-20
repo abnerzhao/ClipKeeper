@@ -1,7 +1,7 @@
 'use strict'
 if (navigator.platform.includes('Mac')) document.documentElement.classList.add('mac')
 const $ = id => document.getElementById(id)
-const api = window.cutshelf
+const api = window.clipkeeper
 const video = $('video')
 let clips = [], selected, busy = false, selectionPlayback = false, generation = 0
 let pendingWrite = Promise.resolve(), writeVersion = 0, writeError

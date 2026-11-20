@@ -83,7 +83,7 @@ async function exportCut({ source, target, start, end, overwrite, signal, onProg
   }
   const before = await fs.lstat(source, { bigint: true })
   if (!before.isFile()) throw new Error('原片已移动或替换，请重新导入')
-  const dir = await fs.mkdtemp(path.join(path.dirname(target), '.cutshelf-'))
+  const dir = await fs.mkdtemp(path.join(path.dirname(target), '.clipkeeper-'))
   const temp = path.join(dir, 'cut' + extension(target))
   try {
     await encode(['-abort_on', 'empty_output', '-ss', String(start), ...inputArgs(source), '-t', String(end - start), ...tracks,

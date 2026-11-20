@@ -9,7 +9,7 @@ const { exportCut, discover, suggestName, preview } = require('../media')
 const { Library } = require('../library')
 
 test('导入去重、备注和粗剪范围恢复、移出仅影响素材库', async t => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'shelf-lib-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clipkeeper-lib-'))
   t.after(() => fs.rm(dir, { recursive:true, force:true }))
   const file = path.join(dir, '中文 素材.mp4')
   await fs.writeFile(file, 'original')
@@ -26,7 +26,7 @@ test('导入去重、备注和粗剪范围恢复、移出仅影响素材库', as
 })
 
 test('真实音视频：另存、同名保护、失败回滚、兼容预览和覆盖', async t => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'shelf-media-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clipkeeper-media-'))
   t.after(() => fs.rm(dir, { recursive:true, force:true }))
   const source = path.join(dir, '原片.mov'), target = path.join(dir, '导出.mp4')
   execFileSync(ffmpeg, ['-loglevel','error','-f','lavfi','-i','testsrc2=size=160x90:rate=25',
@@ -55,11 +55,11 @@ test('真实音视频：另存、同名保护、失败回滚、兼容预览和�
   assert.match(inspect(proxy), /Duration: 00:00:03/)
   await exportCut({ ...cut, target:source, overwrite:true })
   assert.match(inspect(source), /Duration: 00:00:01\.2/)
-  assert.equal((await fs.readdir(dir)).some(f => f.startsWith('.cutshelf-')), false)
+  assert.equal((await fs.readdir(dir)).some(f => f.startsWith('.clipkeeper-')), false)
 })
 
 test('旧素材按所在目录归组，重复导入父目录后保留备注并恢复完整目录树', async t => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'shelf-tree-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clipkeeper-tree-'))
   t.after(() => fs.rm(dir, { recursive:true, force:true }))
   const project = path.join(dir, '旅行')
   const file = path.join(project, '杭州', '素材', 'A.mp4')

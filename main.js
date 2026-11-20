@@ -140,9 +140,9 @@ function bind() {
   }))
 }
 
-// Keep the existing CutShelf library when the display name changes.
+// Keep the profile independent of the localized display name.
 if (!app.commandLine.hasSwitch('user-data-dir')) {
-  const profile = path.join(app.getPath('appData'), 'CutShelf')
+  const profile = path.join(app.getPath('appData'), 'ClipKeeper')
   app.setPath('userData', profile)
   app.setPath('sessionData', profile)
 }
@@ -156,7 +156,7 @@ else {
       app.dock.setIcon(nativeImage.createFromBuffer(icon))
     }
     library = new Library(app.getPath('userData'))
-    cacheDir = await fsp.mkdtemp(path.join(app.getPath('temp'), 'cutshelf-preview-'))
+    cacheDir = await fsp.mkdtemp(path.join(app.getPath('temp'), 'clipkeeper-preview-'))
     protocol.handle('clip', stream)
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       ...(process.platform === 'darwin' ? [{ role:'appMenu' }] : []),

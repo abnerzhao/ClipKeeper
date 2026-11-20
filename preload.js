@@ -4,4 +4,4 @@ for (const name of ['list','import','edit','remove','reveal','cancel','proxy','e
   api[name] = (...args) => ipcRenderer.invoke(name, ...args)
 }
 api.onProgress = fn => ipcRenderer.on('progress', (_event, data) => fn(data))
-contextBridge.exposeInMainWorld('cutshelf', api)
+contextBridge.exposeInMainWorld('clipkeeper', api)

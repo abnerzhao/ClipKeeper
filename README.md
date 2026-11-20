@@ -11,6 +11,8 @@
 
 视频通过 FFmpeg 编码为 H.264（8-bit）/ AAC，包含主视频和首条音轨。建议对 HDR、多音轨、字幕等素材使用另存。覆盖使用同目录临时文件，编码完成后再替换。备注保存在 Electron 的 userData/library.json，单独复制视频时可通过文件名保留简短说明。原片移走后需重新导入。对无法直接播放的素材可以生成临时兼容预览。
 
+macOS 默认素材库位于 `~/Library/Application Support/ClipKeeper/library.json`。如需沿用旧版素材库，请退出应用，在首次导入素材前将旧数据目录里的 `library.json` 复制到新目录。
+
 ## 开发
 
 使用 Node.js 22.12+ 和 npm。

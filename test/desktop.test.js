@@ -7,7 +7,7 @@ const { execFileSync } = require('node:child_process')
 const { _electron } = require('playwright-core')
 
 test('桌面批量导入、播放、设置入出点、自动保存、另存与覆盖', { timeout:90000 }, async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cutshelf-ui-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'clipkeeper-ui-'))
   let desktop
   try {
     const root = path.join(dir, '旅行')
@@ -17,7 +17,7 @@ test('桌面批量导入、播放、设置入出点、自动保存、另存与�
     execFileSync(require('@ffmpeg-installer/ffmpeg').path, ['-loglevel','error','-f','lavfi','-i','testsrc2=size=256x144:rate=25',
       '-f','lavfi','-i','sine','-t','4','-c:v','libx264','-c:a','aac',file])
     await fs.copyFile(file, second)
-    const packaged = process.env.CUTSHELF_TEST_EXECUTABLE
+    const packaged = process.env.CLIPKEEPER_TEST_EXECUTABLE
     const options = { executablePath:packaged || require('electron'), args:[...(packaged ? [] : [path.resolve(__dirname,'..')]),
       '--user-data-dir=' + path.join(dir,'profile')] }
     desktop = await _electron.launch(options)
@@ -27,7 +27,7 @@ test('桌面批量导入、播放、设置入出点、自动保存、另存与�
       dialog.showSaveDialog = async () => ({ canceled:false, filePath:output })
       dialog.showMessageBox = async () => ({ response:1 })
     }, { file, second, output, root })
-    if (process.env.CUTSHELF_SCREENSHOT_DIR) await page.screenshot({ path:path.join(process.env.CUTSHELF_SCREENSHOT_DIR,'library.png') })
+    if (process.env.CLIPKEEPER_SCREENSHOT_DIR) await page.screenshot({ path:path.join(process.env.CLIPKEEPER_SCREENSHOT_DIR,'library.png') })
     await page.locator('#firstImport').click()
     await page.waitForFunction(() => document.querySelectorAll('.item').length === 2 && document.querySelector('video').duration > 3)
     await page.locator('#importFolder').click()
@@ -55,7 +55,7 @@ test('桌面批量导入、播放、设置入出点、自动保存、另存与�
     await page.locator('#note').fill('日落')
     await page.waitForFunction(() => document.querySelector('#saved').textContent === '已保存')
     await page.waitForSelector('.format img', { timeout:10000 })
-    if (process.env.CUTSHELF_SCREENSHOT_DIR) await page.screenshot({ path:path.join(process.env.CUTSHELF_SCREENSHOT_DIR,'editor.png') })
+    if (process.env.CLIPKEEPER_SCREENSHOT_DIR) await page.screenshot({ path:path.join(process.env.CLIPKEEPER_SCREENSHOT_DIR,'editor.png') })
     await page.locator('#newFile').click()
     await page.waitForFunction(() => document.querySelector('#name').textContent === 'A_日落.mp4' && document.querySelector('video').duration > 0)
     assert.ok(Math.abs(await page.locator('video').evaluate(v => v.duration) - 2) < 0.12)
