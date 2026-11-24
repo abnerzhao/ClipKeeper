@@ -2,9 +2,10 @@
 if (navigator.platform.includes('Mac')) document.documentElement.classList.add('mac')
 const $ = id => document.getElementById(id)
 const api = window.clipkeeper
+api.onFullscreen(active => document.documentElement.classList.toggle('window-fullscreen', active))
 const video = $('video')
-let clips = [], selected, busy = false, selectionPlayback = false, generation = 0
-let pendingWrite = Promise.resolve(), writeVersion = 0, writeError
+let clips = [], selected, busy = false, generation = 0
+let pendingWrite = Promise.resolve(), writeError
 const compatible = new Set()
 const duration = () => Number.isFinite(video.duration) ? video.duration : 0
 const outPoint = () => Math.min(selected?.end ?? duration(), duration())
@@ -95,32 +96,159 @@ async function pumpThumbs() {
   } finally { makingThumb = false }
 }
 
-function drawRuler() {
-  const canvas = $('ruler'), box = canvas.getBoundingClientRect()
-  if (box.width < 1) return
-  const dpr = window.devicePixelRatio, w = box.width, h = box.height
-  if (canvas.width !== Math.round(w*dpr) || canvas.height !== Math.round(h*dpr)) {
-    canvas.width = Math.round(w*dpr); canvas.height = Math.round(h*dpr)
-  }
-  const ctx = canvas.getContext('2d')
-  ctx.setTransform(dpr,0,0,dpr,0,0)
-  ctx.clearRect(0,0,w,h)
-  const side = 7, usable = w - 2*side, total = duration() || 1
-  const x = t => side + Math.max(0, Math.min(1, t/total)) * usable
-  ctx.fillStyle = '#eee'; ctx.fillRect(side,4,usable,h-8)
-  const a = x(selected?.start || 0), b = x(outPoint())
-  ctx.fillStyle = '#cee6a6'; ctx.fillRect(a,4,b-a,h-8)
-  // Keep the perforations inside the selection and clear of the lower time ticks.
-  ctx.fillStyle = '#f8fbea'
-  for (let hole = a + 5; hole + 4 < b - 2; hole += 12) ctx.fillRect(hole, 6, 4, 3)
-  ctx.fillStyle = '#999'
-  for (let i = 0; i <= 40; i++) {
-    const tick = i % 5 ? 3 : 6
-    ctx.fillRect(side + usable*i/40,h-4-tick,1,tick)
-  }
-  ctx.fillStyle = '#55783d'; ctx.fillRect(a,3,2,h-6); ctx.fillRect(b-2,3,2,h-6)
+const trimTrack = $('trimTrack')
+let trimDrag
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+const divider = $('divider')
+function setSidebarWidth(px) {
+  const width = Math.round(clamp(px, 212, window.innerWidth - 400))
+  document.documentElement.style.setProperty('--sidebar-width', width + 'px')
+  divider.setAttribute('aria-valuenow', width)
 }
-new ResizeObserver(drawRuler).observe($('ruler'))
+const storedWidth = Number(localStorage.getItem('sidebarWidth'))
+if (storedWidth > 0) setSidebarWidth(storedWidth)
+new ResizeObserver(() => {
+  divider.setAttribute('aria-valuemin', 212)
+  divider.setAttribute('aria-valuemax', window.innerWidth - 400)
+  divider.setAttribute('aria-valuenow', $('library').offsetWidth)
+}).observe($('library'))
+divider.onpointerdown = event => {
+  if (event.button !== 0 || !event.isPrimary) return
+  event.preventDefault()
+  divider.setPointerCapture(event.pointerId)
+  divider.classList.add('dragging')
+}
+divider.onpointermove = event => {
+  if (divider.hasPointerCapture(event.pointerId)) setSidebarWidth(event.clientX)
+}
+divider.onlostpointercapture = () => {
+  divider.classList.remove('dragging')
+  localStorage.setItem('sidebarWidth', $('library').offsetWidth)
+}
+divider.ondblclick = () => {
+  document.documentElement.style.removeProperty('--sidebar-width')
+  localStorage.removeItem('sidebarWidth')
+}
+divider.onkeydown = event => {
+  if (!['ArrowLeft','ArrowRight'].includes(event.key)) return
+  event.preventDefault()
+  setSidebarWidth($('library').offsetWidth + (event.key === 'ArrowLeft' ? -16 : 16))
+  localStorage.setItem('sidebarWidth', $('library').offsetWidth)
+}
+
+function pinchSelection(event) {
+  if (!event.ctrlKey || !selected || !duration()) return
+  event.preventDefault()
+  if (busy || trimDrag || video.error || !event.deltaY) return
+  const total = duration(), start = selected.start, end = outPoint()
+  const factor = Math.exp(-event.deltaY * (event.deltaMode === 1 ? 0.12 : 0.012))
+  const length = clamp((end - start) * factor, Math.min(0.001, total), total)
+  const left = clamp((start + end - length) / 2, 0, total - length)
+  const right = Math.min(total, left + length)
+  if (left === start && right === end) return
+  video.pause()
+  if (video.currentTime < left || video.currentTime > right) video.currentTime = left
+  edit({ start:left, end:right >= total ? null : right })
+}
+for (const target of [$('ruler'), $('segments')]) target.addEventListener('wheel', pinchSelection, { passive:false })
+
+async function showMetadata(clip, version) {
+  const list = $('metadata')
+  list.replaceChildren()
+  try {
+    const data = await api.metadata(clip.id)
+    if (version !== generation) return
+    const size = data.size >= 1e6 ? (data.size / 1e6).toFixed(1) + ' MB' : (data.size / 1e3).toFixed(1) + ' KB'
+    for (const [label, value] of [['分辨率', data.resolution], ['帧率', data.fps && data.fps + ' fps'],
+      ['格式', [data.format, data.codec].filter(Boolean).join(' / ')], ['文件大小', size], ['拍摄设备', data.device]]) {
+      if (!value) continue
+      const item = document.createElement('span')
+      item.textContent = value
+      item.title = label + '：' + value
+      list.append(item)
+    }
+  } catch {
+    if (version === generation) list.textContent = '无法读取原文件信息'
+  }
+}
+
+function pointTime(clientX) {
+  const box = trimTrack.getBoundingClientRect()
+  return clamp((clientX - box.left) / box.width, 0, 1) * duration()
+}
+
+trimTrack.onpointerdown = event => {
+  if (event.button !== 0 || !event.isPrimary || trimDrag || busy || !selected || !duration() || video.error) return
+  event.preventDefault()
+  const start = selected.start, end = outPoint(), anchor = pointTime(event.clientX)
+  const whole = start === 0 && end === duration()
+  const mode = event.shiftKey ? 'draw' : event.target.dataset.edge ||
+    (event.target === $('trimBand') && !whole ? 'move' : 'draw')
+  trimDrag = { id:event.pointerId, mode, anchor, clientX:event.clientX, start, end, moved:false, previousTime:video.currentTime }
+  video.pause()
+  trimTrack.setPointerCapture(event.pointerId)
+}
+
+function updateDrag(event) {
+  const drag = trimDrag
+  if (!drag || drag.id !== event.pointerId) return
+  if (!drag.moved && Math.abs(event.clientX - drag.clientX) < 2) return
+  drag.moved = true
+  const time = pointTime(event.clientX), total = duration()
+  // Preserve the grab offset while resizing.
+  const box = trimTrack.getBoundingClientRect()
+  const delta = (event.clientX - drag.clientX) * total / box.width
+  const start = selected.start, end = outPoint()
+  const gap = Math.min(0.001, end - start)
+  let preview
+  switch (drag.mode) {
+    case 'start':
+      drag.start = clamp(start + delta, 0, end - gap)
+      preview = drag.start
+      break
+    case 'end':
+      drag.end = clamp(end + delta, start + gap, total)
+      preview = drag.end
+      break
+    case 'move': {
+      const shift = clamp(delta, -start, total - end)
+      drag.start = start + shift
+      drag.end = end + shift
+      preview = clamp(drag.anchor + shift, 0, total)
+      break
+    }
+    case 'draw':
+      drag.start = Math.min(time, drag.anchor)
+      drag.end = Math.max(time, drag.anchor)
+      preview = time
+      break
+  }
+  if (video.currentTime !== preview) video.currentTime = preview
+  controls()
+}
+trimTrack.onpointermove = updateDrag
+
+function finishDrag(commit) {
+  const drag = trimDrag
+  if (!drag) return
+  trimDrag = null
+  if (trimTrack.hasPointerCapture(drag.id)) trimTrack.releasePointerCapture(drag.id)
+  if (commit && drag.moved && drag.end > drag.start) {
+    edit({ start:drag.start, end:drag.end === duration() ? null : drag.end })
+  } else {
+    if (drag.moved && duration()) video.currentTime = drag.previousTime
+    controls()
+  }
+}
+trimTrack.onpointerup = event => {
+  if (event.pointerId !== trimDrag?.id) return
+  updateDrag(event)
+  finishDrag(true)
+}
+trimTrack.onlostpointercapture = trimTrack.onpointercancel = event => {
+  if (event.pointerId === trimDrag?.id) finishDrag(false)
+}
+window.addEventListener('blur', () => finishDrag(false))
 
 function clipRow(clip) {
   const row = document.createElement('button')
@@ -130,12 +258,18 @@ function clipRow(clip) {
   format.className = 'format'; format.textContent = clip.name.split('.').pop().toUpperCase()
   const info = document.createElement('span')
   info.className = 'item-text'
-  const name = document.createElement('strong'), note = document.createElement('small')
-  name.textContent = clip.name; note.textContent = clip.note || '无备注'
+  const name = document.createElement('strong')
+  name.textContent = clip.name
+  info.append(name)
+  if (clip.note?.trim()) {
+    const note = document.createElement('small')
+    note.textContent = clip.note
+    info.append(note)
+  }
   format.dataset.clip = clip.id
   if (thumbs.has(clip.id)) applyThumb(format, thumbs.get(clip.id))
   else thumbObserver.observe(format)
-  info.append(name, note); row.append(format, info); row.title = clip.path
+  row.append(format, info); row.title = clip.path
   row.onclick = () => { if (clip !== selected) select(clip) }
   return row
 }
@@ -199,56 +333,114 @@ function list() {
   $('total').textContent = clips.length
 
 }
+function segmentIndex() {
+  if (!selected?.cuts?.length) return -1
+  const boundaries = [0, ...selected.cuts, duration()]
+  const index = boundaries.indexOf(selected.start)
+  return boundaries[index + 1] === outPoint() ? index : -1
+}
+
+function chooseSegment(index, cuts = selected.cuts) {
+  video.pause()
+  const start = index === 0 ? 0 : cuts[index - 1]
+  video.currentTime = start
+  edit({ cuts, start, end:cuts[index] ?? null })
+}
+
+function renderSegments() {
+  const group = $('segments')
+  group.replaceChildren()
+  group.hidden = !duration() || !selected?.cuts?.length
+  if (group.hidden) return
+  const active = segmentIndex()
+  for (const [i, start] of [0, ...selected.cuts].entries()) {
+    const button = document.createElement('button')
+    button.textContent = '片段 ' + (i + 1)
+    button.title = clock(start) + ' – ' + clock(selected.cuts[i] ?? duration())
+    button.setAttribute('aria-pressed', String(i === active))
+    button.disabled = busy
+    button.onclick = () => {
+      chooseSegment(i)
+      group.querySelector('[aria-pressed="true"]')?.focus()
+    }
+    if (i !== active) {
+      group.append(button)
+      continue
+    }
+    const chip = document.createElement('span')
+    chip.className = 'selected-segment'
+    const undo = document.createElement('button')
+    undo.className = 'undo-split'
+    undo.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3.5-4 4 4 4M3.5 7.5H11a4.5 4.5 0 0 1 0 9H9"/></svg>'
+    undo.title = '取消切分，' + (i === 0 ? '与后一段合并' : '与前一段合并')
+    undo.setAttribute('aria-label', button.textContent + '：' + undo.title)
+    undo.disabled = busy
+    undo.onclick = () => {
+      const boundary = Math.max(0, i - 1)
+      const cuts = selected.cuts.filter((_, index) => index !== boundary)
+      chooseSegment(boundary, cuts)
+      const focusTarget = group.querySelector('[aria-pressed="true"]') || $('play')
+      focusTarget.focus()
+    }
+    chip.append(button, undo)
+    group.append(chip)
+  }
+}
+
 function controls() {
   const ready = !!selected && duration() > 0 && !video.error
-  for (const id of ['markIn','markOut','play','playRange','reset','seek','newFile']) $(id).disabled = busy || !ready
+  for (const id of ['play','seek','newFile']) $(id).disabled = busy || !ready
+  const time = video.currentTime
+  $('split').disabled = busy || !ready || time < 0.001 || duration() - time < 0.001 ||
+    !!selected?.cuts?.some(cut => Math.abs(cut - time) < 0.001)
+  $('capture').disabled = busy || !ready || video.seeking || video.readyState < 2
   $('overwrite').disabled = busy || !ready || !/\.(mp4|m4v|mov)$/i.test(selected?.name || '')
-  for (const id of ['remove','note','importFiles','importFolder','firstImport','makeProxy']) $(id).disabled = busy
+  for (const id of ['remove','reveal','importFiles','importFolder','firstImport','makeProxy']) $(id).disabled = busy
   $('seek').max = duration() || 1
   $('seek').value = video.currentTime || 0
   $('position').textContent = clock(video.currentTime)
   $('duration').textContent = clock(duration())
-  $('start').textContent = clock(selected?.start)
-  $('end').textContent = clock(outPoint())
-  $('length').textContent = '选中 ' + clock(Math.max(0, outPoint() - (selected?.start || 0)))
-  drawRuler()
+  const start = trimDrag?.start ?? selected?.start ?? 0, end = trimDrag?.end ?? outPoint()
+  const band = $('trimBand'), total = duration() || 1
+  $('rangeLabel').hidden = !ready || (start === 0 && end === total)
+  $('rangeLabel').textContent = '选区  ' + clock(start) + ' – ' + clock(end)
+  band.hidden = !ready
+  band.style.left = (100 * start / total) + '%'
+  band.style.right = (100 * (1 - end / total)) + '%'
+  band.classList.toggle('full', start === 0 && end === total)
   $('play').textContent = video.paused ? '▶' : 'Ⅱ'
 }
 function select(clip) {
+  finishDrag(false)
   video.pause()
-  selectionPlayback = false
   $('more').open = false
   selected = clip
   for (const folder of clip?.folders || []) collapsed.delete(folder.path)
   generation++
   $('empty').hidden = !!clip; $('editor').hidden = !clip
   $('viewerMessage').hidden = true
-  $('saved').textContent = ''
   if (clip) {
+    showMetadata(clip, generation)
     $('name').textContent = clip.name; $('filePath').textContent = clip.path
-    $('note').value = clip.note
     video.src = 'clip://' + (compatible.has(clip.id) ? 'proxy/' : 'source/') + clip.id + '?v=' + generation
   } else { video.removeAttribute('src') }
   video.load()
+  renderSegments()
   list(); controls()
 }
 
 function edit(values) {
   if (!selected) return
   const clip = selected
-  const version = ++writeVersion
   Object.assign(clip, values)
-  $('saved').textContent = '保存中…'
-  // IPC invocations are queued so rapid keystrokes cannot restore an older note.
-  const snapshot = { note:clip.note, start:clip.start, end:clip.end }
+  const snapshot = { start:clip.start, end:clip.end, cuts:clip.cuts }
+  renderSegments()
   pendingWrite = pendingWrite.then(async () => {
     try {
       await api.edit(clip.id, snapshot)
       writeError = undefined
-      if (clip === selected && version === writeVersion) $('saved').textContent = '已保存'
     } catch (error) {
       writeError = error
-      if (clip === selected) $('saved').textContent = '保存失败'
       fail(error)
     }
   })
@@ -257,14 +449,16 @@ function edit(values) {
 
 async function task(fn, cancellable = false) {
   if (busy) return
+  finishDrag(false)
   busy = true; $('cancel').hidden = !cancellable
+  renderSegments()
   list(); controls()
   try {
     await pendingWrite
     if (writeError) throw writeError
     await fn()
   } catch (error) { fail(error) }
-  finally { busy = false; $('cancel').hidden = true; updateFeedbackLifetime(); list(); controls() }
+  finally { busy = false; renderSegments(); $('cancel').hidden = true; updateFeedbackLifetime(); list(); controls() }
 }
 function pick(kind) {
   task(async () => {
@@ -280,34 +474,53 @@ function pick(kind) {
 $('search').oninput = () => { searchCollapsed.clear(); list() }
 $('importFiles').onclick = $('firstImport').onclick = () => pick('files')
 $('importFolder').onclick = () => pick('folder')
-$('note').oninput = () => { edit({ note:$('note').value }); list() }
-$('seek').oninput = () => { selectionPlayback = false; video.currentTime = Number($('seek').value) }
+$('seek').oninput = () => {
+  if (segmentIndex() >= 0) video.pause()
+  video.currentTime = Number($('seek').value)
+}
+$('split').onclick = () => {
+  video.pause()
+  const time = video.currentTime
+  const cuts = [...(selected.cuts || []), time].sort((a, b) => a - b)
+  edit({ cuts, start:time, end:cuts[cuts.indexOf(time) + 1] ?? null })
+}
+$('capture').onclick = () => {
+  video.pause()
+  const time = video.currentTime, id = selected.id
+  task(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+    if (!blob) throw new Error('无法读取当前视频帧')
+    const target = await api.capture(id, time, await blob.arrayBuffer())
+    status(target ? '截图已保存到 ' + target : '已取消截图')
+  })
+}
 $('play').onclick = () => {
-  selectionPlayback = false
-  if (video.paused) video.play().catch(fail)
-  else video.pause()
+  if (!video.paused) { video.pause(); return }
+  if (segmentIndex() >= 0 && (video.currentTime < selected.start || video.currentTime >= outPoint())) video.currentTime = selected.start
+  video.play().catch(fail)
 }
-$('markIn').onclick = () => {
-  if (video.currentTime >= outPoint()) return status('入点必须早于出点', true)
-  edit({ start:video.currentTime })
+video.ontimeupdate = controls
+let playbackFrame
+function stopAtSegmentEnd() {
+  if (video.paused) return
+  if (segmentIndex() >= 0 && video.currentTime >= outPoint()) {
+    video.pause()
+    video.currentTime = outPoint()
+  } else playbackFrame = requestAnimationFrame(stopAtSegmentEnd)
 }
-$('markOut').onclick = () => {
-  if (video.currentTime <= selected.start) return status('出点必须晚于入点', true)
-  edit({ end:video.currentTime })
-}
-$('reset').onclick = () => edit({ start:0, end:null })
-$('playRange').onclick = () => { video.currentTime = selected.start; selectionPlayback = true; video.play().catch(fail) }
-video.ontimeupdate = () => {
-  if (selectionPlayback && video.currentTime >= outPoint()) {
-    selectionPlayback = false; video.pause(); video.currentTime = outPoint()
-  }
-  controls()
-}
-video.onplay = video.onpause = controls
+video.onplay = () => { controls(); stopAtSegmentEnd() }
+video.onpause = () => { cancelAnimationFrame(playbackFrame); controls() }
+video.onseeking = video.onseeked = video.onloadeddata = controls
 video.ondurationchange = controls
 video.onloadedmetadata = () => {
   if (selected && duration()) {
     if (selected.start >= duration() || (selected.end !== null && selected.end > duration() + 0.001)) edit({ start:0, end:null })
+    if (selected.cuts?.some(cut => cut >= duration())) edit({ cuts:selected.cuts.filter(cut => cut < duration()) })
+    renderSegments()
     video.currentTime = selected.start
     $('viewerMessage').hidden = true
   }
@@ -327,19 +540,46 @@ $('makeProxy').onclick = () => task(async () => {
 document.addEventListener('click', event => {
   if (!$('more').contains(event.target)) $('more').open = false
 })
-document.addEventListener('keydown', event => { if (event.key === 'Escape') $('more').open = false })
-$('reveal').onclick = () => { $('more').open = false; api.reveal(selected.id).catch(fail) }
-$('remove').onclick = () => task(async () => {
-  clips = await api.remove(selected.id)
-  select(clips[0]); status('已移出素材库，磁盘文件保留')
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && $('more').open) {
+    $('more').open = false
+    $('more').querySelector('summary').focus()
+  }
 })
+$('reveal').onclick = () => {
+  $('more').open = false
+  const id = selected.id
+  task(() => api.reveal(id))
+}
+$('remove').onclick = () => {
+  $('more').open = false
+  const id = selected.id
+  task(async () => {
+    const remaining = await api.remove(id)
+    if (!remaining) return
+    clips = remaining
+    compatible.delete(id); thumbs.delete(id); attempted.delete(id)
+    select(clips[0])
+    status('已移出素材库，磁盘文件保留')
+  })
+}
 function output(mode) {
   if (!selected || !duration()) return
   video.pause()
+  const dialog = $('noteDialog')
+  $('noteTitle').textContent = mode === 'overwrite' ? '覆盖原片' : '导出为新文件'
+  $('note').value = selected.note || ''
+  dialog.returnValue = ''
+  dialog.onclose = () => {
+    if (dialog.returnValue === 'continue') saveVideo(mode, $('note').value)
+  }
+  dialog.showModal()
+}
+function saveVideo(mode, note) {
   const id = selected.id, range = { start:selected.start, end:outPoint() }
   task(async () => {
     status('等待导出选择…')
-    const result = await api.export(id, range, mode)
+    const result = await api.export(id, range, mode, note)
     if (!result) { status('已取消导出'); return }
     clips = result.clips; compatible.delete(result.id); thumbs.delete(result.id); attempted.delete(result.id); $('search').value = ''
     select(clips.find(c => c.id === result.id)); status('已保存到 ' + result.file)
@@ -350,9 +590,12 @@ $('newFile').onclick = () => output('new')
 $('cancel').onclick = () => api.cancel().catch(fail)
 api.onProgress(({ label, percent }) => status(label + ' · ' + percent + '%'))
 document.addEventListener('keydown', event => {
-  if (busy || !selected || !duration() || event.metaKey || event.ctrlKey || event.altKey ||
-    event.target.matches('textarea,input,[contenteditable]')) return
-  const action = { Space:'play', KeyI:'markIn', KeyO:'markOut' }[event.code]
-  if (action) { event.preventDefault(); $(action).click() }
+  if (trimDrag) {
+    if (event.key === 'Escape') finishDrag(false)
+    return
+  }
+  if ($('noteDialog').open || busy || !selected || !duration() || event.metaKey || event.ctrlKey || event.altKey ||
+    event.target.closest('aside,textarea,input,[contenteditable]')) return
+  if (event.code === 'Space') { event.preventDefault(); $('play').click() }
 })
 api.list().then(items => { clips = items; select(items[0]) }).catch(fail)

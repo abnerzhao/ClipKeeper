@@ -3,13 +3,16 @@
   --ink: #272727;
   --muted: #6c6c6c;
   --edge: #dcdcdc;
-  --action: #496735;
-  --primary-fill: #cee6a6;
-  --primary-ink: #2d4527;
-  --tint: #f1f7e5;
+  --action: #815b42;
+  --primary-fill: #f1d7bb;
+  --primary-ink: #513826;
+  --tint: #faf2e8;
+  --primary-hover: #eacaa8;
+  --accent-border: #dfc5aa;
+  --film: #d3a780;
+  --film-edge: #946c50;
   --paper: #fff;
-  --ui-font: "PingFang SC", -apple-system, "Microsoft YaHei UI", sans-serif;
-  --mono-font: "Maple Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ui-font: system-ui, sans-serif;
   font: 400 14px/1.45 var(--ui-font);
 }
 * { box-sizing: border-box }
@@ -21,29 +24,27 @@ button {
   background: #ffffff; border: 1px solid var(--edge); border-radius: 7px;
   transition: background-color 100ms, border-color 100ms;
 }
-button:hover { background: #f6f8ef; border-color: #cbd5b7 }
-button:active { background: #e9eedc }
+button:hover { background: var(--tint); border-color: var(--accent-border)}
+button:active { background: var(--primary-fill)}
 button:disabled { opacity: .44; cursor: default }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--action); outline-offset: 2px }
-.filled { color: var(--primary-ink); background: var(--primary-fill); border-color: #bfd599; font-weight: 500 }
-.filled:hover { background: #bfdd91; border-color: #bfdd91 }
+.filled { color: var(--primary-ink); background: var(--primary-fill); border-color: var(--accent-border); font-weight: 500 }
+.filled:hover { background: var(--primary-hover); border-color: var(--primary-hover)}
 .workspace { display: flex; flex: 1; min-height: 0 }
 aside {
-  --sidebar-font: "LXGW WenKai", "霞鹜文楷", serif;
-  font-family: var(--sidebar-font);
-  width: clamp(255px, 23%, 315px); flex: none; padding: 0 18px 12px;
+  width: clamp(212px, var(--sidebar-width, clamp(272px, 24%, 338px)), calc(100% - 400px)); flex: none; padding: 0 18px 12px;
   display: flex; flex-direction: column; gap: 15px; background: #fff; border-right: 1px solid var(--edge);
 }
-.side-title, .imports, .clip-title, .section-title, .transport, .cutline, .exportbar { display: flex; align-items: center; gap: 10px }
+.side-title, .imports, .clip-title, .transport, .exportbar { display: flex; align-items: center; gap: 10px }
 .side-title { gap: 9px; min-height: 52px; flex: none; margin-bottom: -8px }
 .mac .side-title { padding-top: 52px; margin-bottom: 0; -webkit-app-region: drag; user-select: none }
 .detail-pane { flex: 1; min-width: 0; display: flex; flex-direction: column }
 .mac .clip-title { -webkit-app-region: drag }
-.mac .clip-title .more { -webkit-app-region: no-drag }
+
 .mac .empty { position: relative }
 .mac .empty::before { content: ""; position: absolute; inset: 0 0 auto; height: 52px; -webkit-app-region: drag }
-h2, .section-title label { margin: 0; font-size: 15px; font-weight: 600 }
-.side-title h2 { font-size: 18px; letter-spacing: .02em }
+h2 { margin: 0; font-size: 15px; font-weight: 600 }
+.side-title h2 { font-size: 21px; letter-spacing: .02em }
 .count { font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--action); padding: 2px 7px; border-radius: 5px; background: var(--tint) }
 .imports { gap: 6px }
 .imports button { flex: 1; padding: 8px 6px; font-size: 13px }
@@ -51,85 +52,112 @@ input[type=search], textarea {
   width: 100%; padding: 9px 11px; border: 1px solid var(--edge); border-radius: 7px;
   color: var(--ink); background: #ffffff; font-size: 13px;
 }
-input::placeholder, textarea::placeholder { color: #7d7d7d }
+input::placeholder, textarea::placeholder { color: #7d7d7d}
 .items { flex: 1; overflow: auto; margin: 0 -7px }
 .item { display: flex; align-items: center; gap: 11px; width: 100%; margin-bottom: 3px; padding: 8px; text-align: left; background: transparent; border: 1px solid transparent }
-.item:hover { background: #f8faef; border-color: transparent }
-.item.active { background: var(--tint); border-color: #d0dfb5 }
+.item:hover { background: var(--tint); border-color: transparent }
+.item.active { background: var(--tint); border-color: var(--accent-border)}
 .item:disabled { opacity: .75 }
 .format {
   flex: none; width: 55px; height: 37px; position: relative; padding-inline: 5px;
   display: grid; place-items: center; overflow: hidden; border-radius: 3px;
-  background: #edf2de; color: #526d3a; font: 11px/1.25 var(--sidebar-font);
+  background: var(--tint); color: var(--action); font: 11px/1.25 var(--ui-font);
 }
 .format::before, .format::after {
   content: ""; position: absolute; inset-block: 0; width: 5px; pointer-events: none;
-  background: repeating-linear-gradient(to bottom, transparent 0 2px, #eff5df 2px 5px, transparent 5px 8px)
-    center / 2px 100% no-repeat, #5b6e46;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, var(--tint) 2px 5px, transparent 5px 8px)
+    center / 2px 100% no-repeat, var(--film-edge);
 }
 .format::before { left: 0 }
 .format::after { right: 0 }
 .format img { display: block; width: 100%; height: 100%; object-fit: cover }
 .item-text { min-width: 0; display: grid; gap: 4px }
 .item-text strong, .item-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.item-text strong { font-weight: 500; font-size: 14px }
-.item-text small, .items>p { color: var(--muted); font-size: 12px }
+.item-text strong { font-weight: 500; font-size: 16px }
+.item-text small, .items>p { color: var(--muted); font-size: 13px }
 .folder > summary {
   display: flex; align-items: center; gap: 6px; padding: 6px 5px;
   cursor: pointer; border-radius: 5px; font-size: 13px; font-weight: 550;
 }
-.folder > summary:hover { background: #f7f9ee }
+.folder > summary:hover { background: var(--tint)}
 .folder > summary:focus-visible { outline: 2px solid var(--action); outline-offset: -2px }
 .folder > summary::-webkit-details-marker { display: none }
 .folder > summary::before { content: "▸"; color: var(--muted); font: 12px/1 sans-serif }
 .folder[open] > summary::before { transform: rotate(90deg) }
 .folder > summary span {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 15px; font-weight: 500; line-height: 1.45;
+  font-size: 16px; font-weight: 500; line-height: 1.45;
 }
 .folder > summary small { margin-left: auto; color: var(--muted); font-size: 11px }
 .folder-contents { margin-left: 6px; padding-left: 5px; border-left: 1px solid var(--edge) }
 .items>p { padding: 16px 8px; margin: 0; text-align: center }
 main { flex: 1; min-width: 0; overflow: auto }
 .empty { min-height: 100%; padding: 36px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center }
-.empty h1 { margin: 26px 0 8px; font: 600 30px/1.35 "Songti SC", "STSong", serif; letter-spacing: .035em }
+.empty h1 { margin: 26px 0 8px; font: 600 30px/1.35 var(--ui-font); letter-spacing: .035em }
 .empty p { margin: 0 0 23px; color: var(--muted); line-height: 1.6 }
 .empty .filled { padding: 9px 18px }
 .film { width: 98px; height: 98px; display: block }
 #editor { padding: 20px clamp(21px,2.3vw,38px) 16px; max-width: 1500px; margin: auto }
+.mac.window-fullscreen .side-title {
+  padding-top: 0; min-height: 0; margin: 20px 0 0; line-height: 1.3;
+}
+.window-fullscreen #editor {
+  display: flex; flex-direction: column; min-height: 100%; max-width: none;
+}
+.window-fullscreen .viewer { flex: 1 0 180px }
 .clip-title { margin-bottom: 16px }
 .clip-heading { flex: 1; min-width: 0 }
 .clip-heading h1, .clip-heading p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 }
 .clip-heading h1 { font-size: 21px; font-weight: 600; line-height: 1.3 }
 .clip-heading p { margin-top: 4px; color: var(--muted); font-size: 11px; text-align: left }
-.clip-title button, .subtle { font-size: 12px }
-.clip-title button { background: transparent; border-color: transparent; color: var(--muted) }
-.clip-title button:hover { background: #f5f8ed }
-.viewer { position: relative; overflow: hidden; height: clamp(180px,calc(100vh - 386px),74vh); background: #1a1a1a; border-radius: 9px }
+.viewer { position: relative; overflow: hidden; height: clamp(180px,calc(100vh - 324px),74vh); background: #1a1a1a; border-radius: 9px }
 video { height: 100%; width: 100%; display: block; object-fit: contain }
-.viewer-message { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 15px; color: #e8e8e8; background: #1b1b1b }
-.viewer-message button { color: #333333 }
-.transport { gap: 13px; margin-top: 9px; font: 400 13px/1.3 var(--mono-font); font-variant-numeric: tabular-nums; color: #4e4e4e }
-.transport button { padding: 4px 7px; width: 33px; border-color: transparent; background: var(--tint); color: var(--action) }
-.ruler { position: relative; flex: 1; height: 25px }
-.ruler canvas, .ruler input { position: absolute; inset: 0; width: 100%; height: 100% }
-.ruler input { appearance: none; margin: 0; background: transparent; cursor: pointer }
-.ruler input::-webkit-slider-runnable-track { background: transparent }
-.ruler input::-webkit-slider-thumb { appearance: none; width: 12px; height: 23px; background: var(--action); border: 2px solid #ffffff; border-radius: 4px; box-shadow: 0 1px 3px #43434350 }
-.cutbox { padding: 15px 0; border-bottom: 1px solid var(--edge) }
-.section-title { justify-content: space-between; margin-bottom: 8px }
-.section-title span, .export-format { color: var(--muted); font-size: 12px }
-.cutline { flex-wrap: wrap; gap: 8px }
-.cutline button { font-size: 13px; padding: 5px 8px }
-.cutline output { font: 400 13px/1.3 var(--mono-font); color: #4c4c4c }
-.arrow, kbd { color: var(--muted) }
-kbd { margin-left: 3px; font: 11px/1.25 var(--mono-font) }
-.subtle { border-color: transparent; background: transparent; color: var(--muted) }
-#playRange { margin-left: auto }
-.notebox { padding: 13px 0 11px }
+.viewer-message { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 15px; color: #e8e8e8; background: #1b1b1b}
+.viewer-message button { color: #333333}
+.ruler { margin-top: 8px }
+.transport { gap: 10px; margin-top: 8px }
+.transport button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; color: var(--action) }
+#play { background: var(--tint); border-color: transparent }
+.timecode { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; color: var(--muted); font: 400 13px/1 var(--ui-font); font-variant-numeric: tabular-nums }
+#position { color: var(--ink) }
+#seek { display: block; appearance: none; width: calc(100% + 12px); margin: 0 -6px; height: 20px; background: transparent; cursor: pointer }
+#seek::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(to right, transparent 6px, var(--edge) 6px, var(--edge) calc(100% - 6px), transparent calc(100% - 6px)) }
+#seek::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; margin-top: -4.5px; border: 2px solid white; border-radius: 50%; background: var(--action); box-shadow: 0 0 0 1px #8b8b8b }
+#trimTrack { position: relative; height: 24px; border-radius: 3px; background: #f2ede7; cursor: crosshair; touch-action: none; user-select: none }
+#trimBand {
+  position: absolute; inset-block: 0; left: 0; right: 0; cursor: grab; container-type: inline-size;
+  background: repeating-linear-gradient(90deg, #fff4e7 0 4px, transparent 4px 12px) 5px 3px / auto 3px repeat-x, var(--film);
+}
+#trimBand.full { cursor: crosshair }
+#trimBand:active { cursor: grabbing }
+.trim-edge {
+  position: absolute; top: 0; bottom: 0; width: 12px; cursor: ew-resize;
+  display: grid; place-items: center; background: #b68b69;
+}
+.trim-edge::after { content: ""; height: 10px; width: 2px; border-radius: 2px; background: white }
+.trim-edge.left { left: 0; border-radius: 4px 0 0 4px }
+.trim-edge.right { right: 0; border-radius: 0 4px 4px 0 }
+/* Keep both handles reachable when the selection is narrower than two grips. */
+@container (width < 26px) {
+  .trim-edge.left { left: auto; right: 100% }
+  .trim-edge.right { right: auto; left: 100% }
+}
+.edit-tools { display: flex; gap: 6px; margin-left: auto }
+.edit-tools svg, .undo-split svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
+#segments button { font-size: 12px; padding: 4px 10px }
+#segments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px }
+.selected-segment { display: inline-flex; border: 1px solid var(--accent-border); border-radius: 7px; background: var(--tint); color: var(--primary-ink) }
+#segments .selected-segment button { border: 0; background: transparent }
+#segments .selected-segment [aria-pressed] { padding: 3px 4px 3px 9px }
+#segments .undo-split { width: 25px; padding: 0; display: grid; place-items: center; color: var(--action) }
+.undo-split svg { width: 15px; height: 15px }
+#segments .undo-split:hover { background: var(--primary-fill) }
+#noteDialog { width: min(400px, 90vw); padding: 20px; color: var(--ink); border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 10px 44px #0002 }
+#noteDialog::backdrop { background: #1e1e1e38 }
+.notebox h2 { margin-bottom: 14px; font-size: 18px }
+.notebox label { display: block; margin-bottom: 6px }
 .notebox textarea { display: block; min-height: 44px; resize: vertical; font-size: 14px; line-height: 1.55 }
-.exportbar { justify-content: flex-end }
-.export-format { margin-right: auto; font-size: 11px }
+.exportbar { justify-content: flex-end; margin-top: 12px }
 .feedback {
   display: flex; flex: none; align-items: center; gap: 12px;
   padding: 9px clamp(21px,2.3vw,38px); border-top: 1px solid var(--edge);
@@ -137,13 +165,22 @@ kbd { margin-left: 3px; font: 11px/1.25 var(--mono-font) }
 }
 #status { flex: 1; min-width: 0; max-height: 6em; overflow: auto; overflow-wrap: anywhere }
 .feedback button { padding: 3px 9px; font-size: 12px }
-#status.error { color: #a44232 }
+#status.error { color: #a44232}
 @media (prefers-reduced-motion: reduce) { button { transition: none } }
+
+#divider { flex: 0 0 8px; margin-left: -4px; margin-right: -4px; z-index: 1; cursor: col-resize; touch-action: none; -webkit-app-region: no-drag }
+#divider:hover, #divider:focus-visible, #divider.dragging { background: #8883; outline: none }
+#metadata { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0; margin: 8px 0 0; color: #5f564f; font-size: 12px; font-variant-numeric: tabular-nums }
+#metadata > span + span::before { content: "·"; margin: 0 7px; color: #a5998c }
+#rangeLabel { margin-right: auto; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--action) }
+#timeline { padding: 0 12px }
 
 .more { position: relative }
 .more summary { list-style: none; cursor: pointer; padding: 3px 10px 6px; font-weight: 650; letter-spacing: 2px; border-radius: 5px; color: #555 }
 .more summary::-webkit-details-marker { display: none }
-.more summary:hover, .more[open] summary { background: #f0f5e6 }
+.more summary:hover, .more[open] summary { background: var(--tint) }
 .more summary:focus-visible { outline: 2px solid #555 }
 .more-menu { position: absolute; z-index: 2; right: 0; top: calc(100% + 4px); display: grid; min-width: 126px; padding: 4px; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 3px 14px #0001 }
 .more-menu button { text-align: left; color: #333 }
+.mac .clip-title .more { -webkit-app-region: no-drag }
+.more-menu button { border-color: transparent; font-size: 13px }

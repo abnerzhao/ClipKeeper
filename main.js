@@ -6,7 +6,7 @@ const { Readable } = require('node:stream')
 const { pathToFileURL } = require('node:url')
 const { randomUUID } = require('node:crypto')
 const { Library } = require('./library')
-const { discover, suggestName, exportCut, preview, writable, extension, formats } = require('./media')
+const { metadata, discover, suggestName, exportCut, preview, writable, extension, formats } = require('./media')
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'clip', privileges: {
   standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true
@@ -47,6 +47,12 @@ function openWindow() {
     ...(process.platform === 'darwin' ? { titleBarStyle:'hiddenInset', trafficLightPosition:{ x:20, y:19 } } : {}), webPreferences: {
       preload: path.join(__dirname, 'preload.js'), sandbox: true, contextIsolation: true, nodeIntegration: false
     } })
+  function syncFullscreen() {
+    win.webContents.send('window-fullscreen', win.isFullScreen())
+  }
+  win.on('enter-full-screen', syncFullscreen)
+  win.on('leave-full-screen', syncFullscreen)
+  win.webContents.on('did-finish-load', syncFullscreen)
   win.webContents.setWindowOpenHandler(() => ({ action:'deny' }))
   win.webContents.on('will-navigate', event => event.preventDefault())
   win.on('close', e => {
@@ -76,6 +82,7 @@ async function runJob(fn) {
 
 function bind() {
   handle('list', () => library.rows())
+  handle('metadata', id => metadata(library.get(id).path))
   handle('import', async kind => {
     const folder = kind === 'folder'
     const pick = await dialog.showOpenDialog(win, {
@@ -95,9 +102,23 @@ function bind() {
       (changes.end === null || Number.isFinite(changes.end) && changes.end > changes.start)) {
       valid.start = changes.start; valid.end = changes.end
     }
+    if (changes.cuts !== undefined) {
+      if (!Array.isArray(changes.cuts) || !changes.cuts.every((t, i, cuts) =>
+        Number.isFinite(t) && t > (i ? cuts[i - 1] : 0))) throw new Error('切分时间无效')
+      valid.cuts = changes.cuts
+    }
     return library.update(id, valid)
   })
-  handle('remove', id => { library.remove(id); proxies.delete(id); return library.rows() })
+  handle('remove', async id => {
+    const subject = '「' + library.get(id).name + '」'
+    const answer = await dialog.showMessageBox(win, { type:'question', message:'将' + subject + '移出素材库？',
+      detail:'磁盘上的文件会保留，素材库中的备注和切点将被移除。',
+      buttons:['取消','移出素材库'], defaultId:0, cancelId:0 })
+    if (answer.response !== 1) return null
+    library.remove(id)
+    proxies.delete(id)
+    return library.rows()
+  })
   handle('reveal', id => shell.showItemInFolder(library.get(id).path))
   handle('cancel', () => job?.abort())
   handle('proxy', id => runJob(async signal => {
@@ -108,21 +129,46 @@ function bind() {
       proxies.set(id, temp)
     } catch (error) { await fsp.rm(temp, { force:true }); throw error }
   }))
-  handle('export', (id, range, mode) => runJob(async signal => {
+  handle('capture', async (id, seconds, bytes) => {
     const clip = library.get(id)
+    if (!Number.isFinite(seconds) || seconds < 0 || !(bytes instanceof ArrayBuffer)) throw new Error('截图数据无效')
+    const png = Buffer.from(bytes)
+    if (!png.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) throw new Error('截图格式无效')
+    const stamp = Math.round(seconds * 1000)
+    const result = await dialog.showSaveDialog(win, { title:'保存当前帧',
+      defaultPath:path.join(path.dirname(clip.path), path.parse(clip.name).name + '_' + stamp + 'ms.png'),
+      filters:[{ name:'PNG 图片', extensions:['png'] }] })
+    if (result.canceled) return null
+    const target = result.filePath
+    if (extension(target) !== '.png') throw new Error('截图请保存为 PNG 文件')
+    const temp = path.join(path.dirname(target), '.' + randomUUID() + '.png')
+    try {
+      await fsp.writeFile(temp, png, { flag:'wx' })
+      await fsp.rename(temp, target)
+    } finally { await fsp.rm(temp, { force:true }) }
+    return target
+  })
+  handle('export', (id, range, mode, draftNote) => runJob(async signal => {
+    const clip = library.get(id)
+    const note = typeof draftNote === 'string' ? draftNote.trim().slice(0, 4000) : clip.note
     const overwrite = mode === 'overwrite'
     if (!overwrite && mode !== 'new') throw new Error('未知导出模式')
     let target
     if (overwrite) {
       if (!writable.has(extension(clip.path))) throw new Error('该格式请另存为 MP4')
       const answer = await dialog.showMessageBox(win, { type:'warning', message:'覆盖「' + clip.name + '」？',
-        detail:'将用所选区间替换原片。仅导出主视频和第一条音轨（H.264 8-bit / AAC），其他轨道和原始编码信息可能丢失。此操作无法撤销。',
+        detail:'将用所选区间替换原片。覆盖后其余片段和切点将被移除。仅导出主视频和第一条音轨（H.264 8-bit / AAC），其他轨道和原始编码信息可能丢失。此操作无法撤销。',
         buttons:['取消','覆盖原片'], defaultId:0, cancelId:0 })
       if (answer.response !== 1) return null
       target = clip.path
     } else {
+      const cuts = clip.cuts || []
+      const index = [0, ...cuts].indexOf(range.start)
+      const segment = cuts.length && index >= 0 && (range.end === cuts[index] || index === cuts.length && clip.end === null)
+      const name = suggestName(clip.path, note)
+      const filename = segment ? path.parse(name).name + '_片段' + (index + 1) + '.mp4' : name
       const result = await dialog.showSaveDialog(win, { title:'导出为新视频',
-        defaultPath:path.join(path.dirname(clip.path), suggestName(clip.path, clip.note)),
+        defaultPath:path.join(path.dirname(clip.path), filename),
         filters:[{ name:'MP4 视频', extensions:['mp4'] }, { name:'QuickTime 视频', extensions:['mov'] }] })
       if (result.canceled) return null
       target = result.filePath
@@ -133,7 +179,7 @@ function bind() {
     try {
       const outputPath = await fsp.realpath(target)
       const existing = library.clips.find(item => item.path === outputPath)
-      const output = existing ? library.update(existing.id, { start:0, end:null, note:clip.note }) : library.add([outputPath], clip.note)[0]
+      const output = existing ? library.update(existing.id, { start:0, end:null, cuts:[], note }) : library.add([outputPath], note)[0]
       proxies.delete(output.id)
       return { clips:library.rows(), id:output.id, file:target }
     } catch (e) { throw new Error('视频已保存到 ' + target + '，素材库更新失败：' + e.message) }

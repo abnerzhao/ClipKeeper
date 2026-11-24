@@ -71,6 +71,6 @@ class Library {
     this.commit(this.clips.map(c => c.id === id ? next : c))
     return next
   }
-  remove(id) { this.commit(this.clips.filter(c => c.id !== id)) }
+  remove(id) { this.commit(this.clips.filter(clip => clip.id !== id)) }
 }
 module.exports = { Library }

@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises')
 const path = require('node:path')
-const { spawn } = require('node:child_process')
+const { spawn, execFile } = require('node:child_process')
+const inspectFile = require('node:util').promisify(execFile)
 const encoder = require('@ffmpeg-installer/ffmpeg').path.replace(/app\.asar([/\\])/, 'app.asar.unpacked$1')
 
 const formats = new Set('.mp4 .mov .m4v .mkv .webm .avi .mts .m2ts .mpg .mpeg .wmv .3gp .mxf'.split(' '))
@@ -67,6 +68,24 @@ const inputArgs = file => ['-protocol_whitelist', 'file,pipe', '-i', file]
 const tracks = ['-map', '0:V:0', '-map', '0:a:0?']
 const codecs = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
 
+async function metadata(file) {
+  const { size } = await fs.stat(file)
+  const info = { size, format:extension(file).slice(1).toUpperCase() }
+  // Read the input header and container tags with the bundled FFmpeg, without transcoding.
+  const { stderr } = await inspectFile(encoder, ['-nostdin', '-hide_banner', ...inputArgs(file),
+    '-f', 'ffmetadata', '-'], { timeout:8000, maxBuffer:1024 * 1024 }).catch(() => ({ stderr:'' }))
+  const header = stderr.split(/^Output #/m)[0]
+  const stream = header.split(/\r?\n/).find(line => /^\s*Stream #.*Video:/.test(line) && !line.includes('(attached pic)')) || ''
+  const resolution = stream.match(/,\s*(\d{1,5})x(\d{1,5})\b/)
+  if (resolution) info.resolution = resolution[1] + ' × ' + resolution[2]
+  info.codec = stream.match(/Video:\s*([\w-]+)/)?.[1]?.toUpperCase()
+  info.fps = stream.match(/([\d.]+) fps\b/)?.[1]
+  const make = header.match(/^\s*(?:com\.apple\.quicktime\.)?make\s*:\s*(.+)$/im)?.[1]?.trim()
+  const model = header.match(/^\s*(?:com\.apple\.quicktime\.)?model\s*:\s*(.+)$/im)?.[1]?.trim()
+  info.device = [...new Set([make, model].filter(Boolean))].join(' ')
+  return info
+}
+
 async function preview(source, output, signal) {
   await encode([...inputArgs(source), ...tracks, '-vf', "scale=w='min(1280,iw)':h=-2,pad=ceil(iw/2)*2:ceil(ih/2)*2",
     ...codecs, '-preset', 'veryfast', '-crf', '24', '-f', 'mp4', output], signal)
@@ -109,4 +128,4 @@ async function exportCut({ source, target, start, end, overwrite, signal, onProg
   } finally { await fs.rm(dir, { recursive: true, force: true }) }
 }
 
-module.exports = { discover, suggestName, exportCut, preview, writable, extension, formats }
+module.exports = { metadata, discover, suggestName, exportCut, preview, writable, extension, formats }
